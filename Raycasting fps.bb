@@ -1,0 +1,396 @@
+;RaycastingFPS
+Graphics 640,480,0,2
+SetBuffer BackBuffer()
+Include "basic fps.bb"
+
+
+px = 0 
+py = 0
+pcellx = 0 ;px/64
+pcelly = 0 ;py/64
+pheight = 32
+pangle = 0
+
+FOV =60
+projectionPlanex# = 320
+projectionPlaney = 200
+ProjectionPlaneCenterx = 160 ;ProjectionxPlanex/2
+ProjectionPlaneCentery = 100 ;ProjectionxPlaney/2
+ProjectionPlaneDistance = 277 ;(projectionPlanex/2) / tan(FOV/2) = 277
+PixelColumn = 60/320 ;FOV/projectionPlanex 
+
+
+	mapx = 32
+	mapy = 24
+	mapsize = 32*24
+	Cellsize = 64
+
+	;draw map 2d
+	Dim map (mapx ,mapy)
+
+
+raycastLode()
+
+
+Function raycastLode()
+
+	mapx = 32
+	mapy = 24
+
+projectionPlanex# = 320
+projectionPlaney = 200
+;vector base calculus
+
+	posx# = 22
+	posy# = 12
+
+	dirx# = -1
+	dirY# = 0
+
+	planey# = 0;always perpendicular to dir
+	planey# = 0.66;the FOV is 2 * atan(0.66/1.0)=66�
+
+	Time = 0
+	oldTime = 0
+	
+	camerax# = 0
+	cameray# = 0
+
+	raydirx# = 0
+	raydiry# = 0
+
+	mapcellx# = 0
+	mapcelly# = 0
+
+	sideDistx# = 0
+	sideDisty# = 0
+
+	deltaDistx# = 0
+	delatDisty# = 0
+;end vector
+
+d_1 = 0
+d_2 = 320
+
+Origin 320,0
+
+;mainloop
+While Not KeyHit(1)
+	
+	clean():mapclean(posx,posy,mapx,mapy);Cls
+	x#=0 :While x < projectionPlanex
+
+		;calculate ray position and direction
+		camerax = (2 * x) / projectionPlanex -1
+		raydirx = dirx + planex * camerax
+		raydiry = diry + planey * camerax
+		
+
+		;which box of the map we are in
+		mapcellx = posx
+		mapcelly = posy
+
+		;length of ray from current position to next x/y-side
+		sideDistx = 0
+		sideDisty = 0
+
+		;length of ray from x/y-side to nest x/y-side
+		;When deriving deltaDistX geometrically you get, with Pythagoras,
+		;the formula "sqrt(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX))",
+		;but this can be simplified To Abs(1 / rayDirX).
+		deltaDistx = Sqr(1 + (rayDirY * rayDirY) / (rayDirX * rayDirX));Abs(1/raydirx)
+		deltaDisty = Sqr(1 + (rayDirX * rayDirX) / (rayDirY * rayDirY));Abs(1/raydiry)
+		perpWalldist# = 0
+		
+		;what direction to step in x/y direction (either +1 or -1)
+		stepx# = 0
+		stepy# = 0
+
+		;is there a wall hit?
+		hit = 0
+		;was a ns or a ew wall hit?
+		side = 0
+
+
+
+		;calculate initial step and initial sidedist
+		
+
+
+		If raydirx < 0 Then
+			stepx = -1
+			sidedistx = (posx - mapcellx) * deltadistx
+		Else
+			stepx = 1
+			sidedistx = (mapcellx + 1 -posx) * deltadistx
+		EndIf
+		
+		If raydiry < 0 Then
+			stepy = -1
+			sidedisty = (posy - mapcelly) * deltadisty
+		Else
+			stepy = 1
+			sidedisty = (mapcelly + 1 -posy) * deltadisty
+		EndIf
+
+
+
+		;perform DDA
+		While hit = 0
+			;jump to next map square, or in x-direction, or in Y ditrection
+			If sideDistx < sideDisty Then
+				sidedistx = sidedistx + deltadistx
+				mapcellx = mapcellx + stepx 
+				side = 0
+			Else
+				sidedisty = sidedisty + deltadisty
+				mapcelly = mapcelly + stepy
+				side = 1
+			EndIf
+
+;---------------------------------------------------------------------
+				Plot mapcellx*10-320,mapcelly*10:Flip:
+
+			;check if ray hit a wall
+			If map(mapcellx,mapcelly) > 0 Then
+				hit = 1
+
+				;Oval mapcellx*10-5-320,mapcelly*10-5,10,10
+				;Line mapcellx*10-320,mapcelly*10,posx*10-320+2,posy*10+2
+				
+			EndIf
+		Wend
+
+
+
+	;calculate distance projected on camera direction
+	If side = 0 Then
+		perpWalldist = (mapcellx - posx + (1- stepx)/2) / raydirx
+	Else
+		perpWalldist = (mapcelly - posy + (1- stepy)/2) / raydiry
+	EndIf
+	;calculate height of line to draw on screen
+	lineheight = projectionPlaney / perpWalldist
+	;calculate lowest and highest pixel to fill i current stripe
+	drawstart = -lineheight / 2 + projectionPlaney  / 2
+	If drawstart < 0 Then drawstart = 0
+	drawend   =  lineheight / 2 + projectionPlaney  / 2
+	If drawend >= projectionPlaney  Then drawend = projectionPlaney -1
+	
+	c = 255 : If side =1 Then c = c/2
+
+
+	oldtime = time
+	time = MilliSecs()
+	frametime# = (time - oldtime) / 1000
+;---------------------------------------------------------------------
+Rect 0,200,320,040:Color 255,255,255
+Text 0,200, deltadisty
+;Text 0,220, (1./frametime)
+ci = 255 * x/projectionPlanex
+Color 255,ci,ci
+;Plot -320+mapcelly*2, 310+mapcelly
+;Plot -320+sidedisty*2, 320+sidedistx
+;Plot -320+raydiry*200+200, 330
+;Plot -320+deltadisty*2, 340+deltadistx
+
+Line d_1,d_2, 0+deltadisty, 320+raydiry*100
+d_1 = 0+deltadisty
+d_2= 320+raydiry*100
+
+	Select map(mapcellx, mapcelly)
+		Case 1: Color c,0,0
+		Case 2: Color 0,c,0
+		Case 3: Color 0,0,c
+		Case 4: Color c,c,0
+		Default: Color c,c,c
+	End Select
+
+	Line x,drawstart, x,drawend:Flip
+	
+
+Oval mapcellx*10-5-320,mapcelly*10-5,10,10
+Line mapcellx*10-320,mapcelly*10,posx*10-320+2,posy*10+2
+
+	
+	x = x+1
+	Wend;Next
+
+Wend
+
+End Function
+
+
+Function clean()
+	Color 128,128,255
+	Rect 0,0,320,200
+End Function
+
+	
+Function mapclean(posx,posy,mapx,mapy)
+	;Color 255,255,00
+	;Rect -320,0,320,200
+
+	Restore mapdata
+	For y = 0 To mapy-1
+		For x = 0 To mapx-1
+			Read mapcell
+			map(x,y) = mapcell
+
+			c = 255/2
+			Select mapcell
+				Case 1: Color c,0,0
+				Case 2: Color 0,c,0
+				Case 3: Color 0,0,c
+				Case 4: Color c,c,0
+				Default: Color 0,c/4,c/4
+			End Select
+			
+			;Color 32*mapcell,32*mapcell,32*mapcell
+			Rect x*10-320,y*10, 10,10;:Print mapcell:Delay 16
+
+			Color 255,000,000: Rect 10*posx-320,10*posy, 5,5
+		Next
+	Next
+End Function
+
+
+WaitKey():End
+;1.Based on the viewing angle, subtract 30 degrees (half of the FOV).
+;2.Starting from column 0:
+;	A. Cast a ray. (The term ?cast? is a bit confusing. Imagine the player as a wizard who can ?cast? rays instead of spells. The ray is just an ?imaginary? Line extending from the player.)
+;	B. Trace the ray Until it hits a wall.
+;3.Record the distance To the wall (the distance is equal To the length of the ray).
+;4.Add the angle increment so that the ray moves To the Right (we know from Figure 10 that the value of the angle increment is 60/320 degrees).
+;5.Repeat Step 2 And 3 For Each subsequent column Until all 320 rays are cast.
+
+
+;Steps of finding intersections with horizontal grid lines:
+
+;	1.Find coordinate of the First intersection (point A in this example).
+
+		;If the ray is facing up
+			;A.y = rounded_down(Py/64) * (64) - 1;
+		;If the ray is facing down
+			;A.y = rounded_down(Py/64) * (64) + 64;
+
+		;(In the picture, the ray is facing up, so we use the First formula.  
+			;A.y=rounded_down(224/64) * (64) - 1 = 191;
+
+		;Now at this point, we can find out the grid coordinate of y.
+		;However, we must decide whether
+			;A is part of the block above the Line,
+			;Or the block below the Line.  
+		;Here, we chose To make A part of the block	above the Line, 
+		;that is why we subtract 1 from A.y. So the grid coordinate of A.y is
+			;191/64 = 2;
+
+			;A.x = Px + (Py-A.y)/Tan(ALPHA);
+		;In the picture, (assume ALPHA is 60 degrees), 
+			;A.x=96 + (224-191)/Tan(60) = about 115;
+
+
+		;The grid coordinate of A.x is 115/64 = 1;
+		;So A is at grid (1,2) And we can check whether there is a wall on that grid.
+		;There is no wall on (1,2) so the ray will be extended To C.
+
+;	2.Find Ya. (Note: Ya is just the height of the grid; however, if the ray is facing up, Ya will be negative, if the ray is facing down, Ya will bepositive.)
+
+		;If the ray is facing up      
+			;Ya=-64;
+		;If the ray is facing down
+			;Ya=64;
+
+;	3.Find Xa using the equation given above.
+		;Xa = 64/Tan(60) = 36;
+
+;	4.Check the grid at the intersection point. If there is a wall on the grid, Stop And calculate the distance.
+		;We can get the coordinate of C as follows:
+			;C.x=A.x+Xa = 115+36 = 151;
+			;C.y=A.y+Ya = 191-64 = 127;
+		;Convert this into grid coordinate by 
+		;dividing Each component with 64.  
+		;The result is 
+			;C.x = 151/64 = 2 (grid coordinate), 
+			;C.y = 127/64 = 1 (grid coordinate) 
+
+		;So the grid coordinate of C is (2, 1).  
+		;(C programmer's note: Remember we always round down, 
+		;this is especially True since
+		;you can use Right shift by 8 To divide by 64).
+
+;	5.If there is no wall, extend the To the Next intersection point. Notice that the coordinate of the Next intersection point -call it (Xnew,Ynew) is Xnew=Xold+Xa, And Ynew=YOld+Ya.
+
+
+
+
+
+
+
+;--------------------------------------------------------------------
+;hauteur mur, percu sur l'ecran: he
+;distance ecran: de
+;he/de = hm/dm
+;hp = de * hm/dm
+;hr hauteur du regard
+; pixel intervalle [ hr - hp/2 , hr+ hp/2 ], <px = ciel, >px = ground
+;player coordinate = px,py
+;intersection = x,y
+; d² = (px - x)² + (py - y)²
+; a = angle entre vision et centre
+; rayoncentre = rayonvision * cos a
+
+
+;--------------------------------------------------------------------
+;screen resolution w:320,h:200
+;center at 160,100 - 320,200
+;fov = 60
+
+;distance from player to screen (projection plane)
+;(screen.width/2) / tan(fov/2) = 277
+
+;320 column = 60 degree
+;1 column = 60/320 degree = 0,1875 angle
+
+;finding wall position
+;cell size = 64
+;wallheight = 64
+
+;distance xa = successive horizontal intersection distance with cell grid,
+;distance ya = successive vertical   intersection distance with cell grid,
+;constant to each crossing,
+;can use simple addition to previous crossing distance
+;a = player angle
+;tan a = cell size / xa
+;xa = cell size/tan a
+
+;cell horizontal intersection
+;1. find coordinate first intersection A
+;   if ray is up: A.y = int( player.y /64) *64 -1
+;	it's down	: A.y = int( player.y /64) *64 +64
+; 	A.x = player.x + (player.y - A.y) / tan a
+;2. if ray down ya is negative else it's positive
+;3. xa = cell size / tan a
+;4. if wall at intersection then stop
+;5. if no wall, then check next intersection at xnew = xold + xa, ynew = yold +ya
+
+;cell vertical intersection
+;1. find coordinate first intersection B
+;   if ray is right	: B.x = int( player.y /64) *64 +64
+;	it's left		: B.x = int( player.y /64) *64 -1
+; 	B.y = player.y + (player.x -  B.x) / tan a
+;2. if ray left xa is negative else it's positive
+;3. ya = cell size / tan a
+;4. if wall at intersection then stop
+;5. if no wall, then check next intersection at xnew = xold + xa, ynew = yold +ya
+
+;player to wall distance, wall size
+; horizontal wall: hwall = A(x,y)
+; vertical wall  : vwall = B(x,y)
+;PA = abs( px - A.x ) / cos anglevision
+;PB = abs( px - B.x ) / cos anglevision
+;we compare the two to select the shorter, called IncorrectDistance (fishbowl effect)
+; if ray left  side: beta = +30
+; if ray right side: beta = -30
+; correctdistance = IncorrectDistance * cos(beta)
+;wallsize = (wallheight/correctdistance) * (screendistance)

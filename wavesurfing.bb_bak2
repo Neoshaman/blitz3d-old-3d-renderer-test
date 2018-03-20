@@ -1,0 +1,500 @@
+;wavesurfing landscape
+Graphics 1024,768,32,2
+SetBuffer BackBuffer()
+Origin 100,100
+
+
+
+
+Global texture 		= LoadImage("C:\Users\enfant du soley\Documents\blitz3d\VoxelSpace-master\maps\C1W.png")
+Global heightmap 	= LoadImage("C:\Users\enfant du soley\Documents\blitz3d\VoxelSpace-master\maps\D1.png")
+
+texbuffer		= ImageBuffer(texture)
+heightbuffer	= ImageBuffer(heightmap)
+
+
+LockBuffer texbuffer 
+LockBuffer heightbuffer
+
+
+Dim texdata 	(ImageWidth (texture),ImageHeight (texture))
+Dim heightdata  (ImageWidth (heightmap),ImageHeight (heightmap))
+
+tsizex = ImageWidth (texture ) -1
+tsizey = ImageHeight(texture ) -1
+
+hsizex = ImageWidth (heightmap) -1
+hsizey = ImageHeight(heightmap) -1
+
+
+i = 0:While i < tsizex
+	j = 0:While j < tsizey
+		texdata (i,j) = ReadPixelFast(i,j,texbuffer)
+	j=j+1:Wend
+i=i+1:Wend
+Print "ready"
+
+
+i=0:While i < hsizex
+	j=0:While j < hsizey
+		heightdata(i,j) = ReadPixelFast(i,j,heightbuffer)
+		heightdata(i,j) = extractR( heightdata(i,j) )
+	j=j+1:Wend
+i=i+1:Wend
+
+UnlockBuffer texbuffer 
+UnlockBuffer heightbuffer
+
+Print "ready: press any key":;WaitKey()
+
+
+;SimpleVoxel(512,512, 0,600-120,120)
+wavesurfing()
+
+i =0
+;If KeyDown(28); enter key
+;****************************************************************************************************
+
+
+While Not KeyHit(1)
+	i = i+10
+	;simpleVoxel(512,512, 0,600-120,i)
+	;simpleVoxelAngle(i)
+	wavesurfing(i)
+
+	;draw()
+
+	Flip
+Wend
+
+
+
+WaitKey()
+End
+
+
+;****************************************************************************************************
+
+
+Function endianess(bit)
+	b1 = bit Shr 4 ;shift right to get the upper down
+	b2 = bit Shl 4 ; get the lower up
+	bx = (b1+b1) And (255)
+	Return bx
+End Function
+
+Function extractB(argb)
+	argb = argb And (255 Shl 0): ;Text -100,10, "b" + Hex (argb Shr 0)
+	Return argb Shr 0
+End Function
+
+Function extractG(argb)
+	argb = argb And (255 Shl 8): ;Text -100,20, "g" + Hex (argb Shr 8)
+	Return argb Shr 8
+End Function
+
+Function extractR(argb)
+	argb = argb And (255 Shl 16): ;Text -100,30, "r" + Hex (argb Shr 16)
+	Return argb Shr 16
+End Function
+
+Function extractA(argb)
+	argb = argb And (255 Shl 24): ;Text -100,40, "a" + Hex (argb Shr 24)
+	Return argb Shr 24
+End Function
+
+
+;****************************************************************************************************
+Function SimpleVoxel(px=512,py=512, height=0,horizon=120,heightscale = 120)
+
+	Cls 
+	
+	;simple voxel landscape
+	minheight = 256
+	maxheight = 0
+	camscale = 1
+
+	;scaling factor for the height, largest distance
+	screenwidth# = 800 / camscale
+	screenheight = 600 / camscale
+	distance# = 500
+
+	;draw from back to the front (high z coordinate to low z coordinate)
+	z#=distance:While z  > 30:z = z-1 
+
+		;find line on map. this calculation correspond to a field of view of 90
+		pleftx# = ( -z + px )
+		plefty  = ( -z + py )
+		prightx = (  z + px )
+		prighty = ( -z + py )
+
+		;segment the line
+		dx# = (prightx - pleftx) / screenwidth
+		
+		;raster line and draw a vertical line for each segment
+		i= 0:While i < screenwidth: i = i +1;:Stop
+
+			;sampling And projecting height Data
+			heightpixel = heightdata(pleftx Mod ImageWidth(heightmap), plefty Mod ImageHeight(heightmap))
+;-------------------------------------------------------------------------------------
+
+			heightONscreen = ( (height - heightpixel) / z * heightscale + horizon )
+			
+			If heightONscreen < 0 Then Goto skip
+				
+			;sampling color from the texture
+			rm = endianess ( 255-extractR( texdata(pleftx Mod ImageWidth (texture), plefty Mod ImageHeight (texture))  ) )
+			gm = endianess ( 255-extractG( texdata(pleftx Mod ImageWidth (texture), plefty Mod ImageHeight (texture))  ) )
+			bm = endianess ( 255-extractB( texdata(pleftx Mod ImageWidth (texture), plefty Mod ImageHeight (texture))  ) )
+			Color (rm*8),(gm*8),(bm*8)
+
+			;drawing the landscape
+			top = screenheight - heightONscreen
+			bottom = screenheight
+			Line i,top, i,bottom
+
+			;debug visualization
+				scalevis = 1
+				offsetx = 8 + screenwidth
+				offsety = 8 + screenheight /10
+				;Plot (pleftx/scalevis), (plefty/scalevis) +offsety
+			.skip
+
+			;increment
+			pleftx = pleftx + dx	
+
+		Wend 
+	Wend
+
+	Color 255,000,000;red
+	Rect 0,0,screenwidth, screenheight,False
+	;height
+	Line 0,screenheight - height,screenwidth,screenheight - height
+	;horizon
+	Color 000,000,255;blue
+	Line 0,screenheight - horizon ,screenwidth,screenheight - horizon
+
+
+	Color 255,255,255
+	Text offsetx,0, "done"
+	Text offsetx,15, "px: " + px
+	Text offsetx,30, "py: " +py
+	Text offsetx,45, "height: " + height
+	Text offsetx,60, "horizon: " + horizon
+	Text offsetx,75, "scale: " + heightscale 
+	Flip 
+
+End Function
+;****************************************************************************************************
+
+Function simpleVoxelAngle(phi# = 0)
+
+	Cls 
+
+	sinphi# = Sin(phi)
+	cosphi# = Cos(phi)
+
+	;simple voxel landscape
+	minheight = 256
+	maxheight = 0
+	camscale = 1
+
+	;scaling factor for the height, largest distance
+	screenwidth# = 800 / camscale 
+	screenheight = 600 / camscale 
+
+	heightscale = 120
+	distance# = 500
+
+	;camera position, height and horizon height
+	px# = 512
+	py# = 512
+
+	height = 05
+	horizon = 120
+
+	;draw from back to the front (high z coordinate to low z coordinate)
+	z#=distance:While z  > 30:z = z-1 
+
+		;find line on map. this calculation correspond to a field of view of 90
+		pleftx# = (-cosphi*z - sinphi*z) +px
+		plefty# = ( sinphi*z - cosphi*z) +py
+		prightx# = ( cosphi*z - sinphi*z) +px
+		prighty# = (-sinphi*z - cosphi*z) +py
+
+		;segment the line
+		dx# = (prightx - pleftx) / screenwidth
+		dy#  = (prighty - plefty) / screenwidth
+
+		;raster line and draw a vertical line for each segment
+		i= 0:While i < screenwidth: i = i +1
+
+			;sampling And projecting height Data
+			heightpixel = heightdata(Abs(pleftx Mod 1024),Abs(plefty Mod 1024))
+;-------------------------------------------------------------------------------------
+			heightONscreen = ( (height - heightpixel) / z * heightscale + horizon )
+			
+			If heightONscreen < 0 Then Goto skip
+				
+			;sampling color from the texture
+			rm = endianess ( 255-extractR( texdata(Abs(pleftx Mod 1024),Abs(plefty Mod 1024))  ) )
+			gm = endianess ( 255-extractG( texdata(Abs(pleftx Mod 1024),Abs(plefty Mod 1024))  ) )
+			bm = endianess ( 255-extractB( texdata(Abs(pleftx Mod 1024),Abs(plefty Mod 1024))  ) )
+			Color (rm*8),(gm*8),(bm*8)
+
+			;drawing the landscape
+			top = screenheight - heightONscreen
+			bottom = screenheight
+			Line i,top , i,bottom
+
+			;debug visualization
+				scalevis = 1
+				offsetx = 8 + screenwidth
+				offsety = 8 + screenheight /10
+				;Plot (pleftx/scalevis), (plefty/scalevis) +offsety
+			.skip
+
+			;increment
+			pleftx = pleftx + dx
+			plefty = plefty + dy	
+
+		Wend 
+	Wend
+
+	Color 255,000,000;red 
+	Rect 0,0,screenwidth, screenheight,False 
+	;height 
+	Line 0,screenheight - height,screenwidth,screenheight - height 
+	;horizon
+	Color 000,000,255;blue 
+	Line 0,screenheight - horizon ,screenwidth,screenheight - horizon 
+
+	Color 255,255,255
+	Text offsetx,0, "done"
+	Text offsetx,15, "px: " + px
+	Text offsetx,30, "py: " +py
+	Text offsetx,45, "height: " + height
+	Text offsetx,60, "horizon: " + horizon
+	Text offsetx,75, "scale: " + heightscale 
+	Text offsetx,90, "angle: " + phi 
+	Flip 
+
+End Function
+;****************************************************************************************************
+
+Function wavesurfing(phi# = 0)
+
+	Cls 
+
+	sinphi# = Sin(phi)
+	cosphi# = Cos(phi)
+
+	;simple voxel landscape, y position for each column on screen
+	minheight = 256
+	maxheight = 0
+	camscale = 1
+
+	;scaling factor for the height, largest distance
+	screenwidth = 800 / camscale ;64
+	screenheight = 600 / camscale ;64
+	heightscale = 120;120;screenheight * .2 
+	distance# = 500
+
+	;camera position, height and horizon height
+	px = 512
+	py = 512
+	height = 50
+	horizon = 120
+
+	;GUI 
+	scalevis = 1
+	offsetx = 8 + screenwidth
+	offsety = 8 + screenheight /10
+
+
+
+
+	;initialize visibility array
+	oldy = CreateBank(screenwidth*2)
+	For b = 0 To screenwidth-1
+		;PokeByte(oldy,b,0 )
+		PokeShort(oldy,b*2,screenheight)
+	Next
+
+
+
+	;draw from front to the back (high z coordinate to low z coordinate)
+	dz# = 1
+	z#  = 1 : While z  < distance
+
+		;find line on map. this calculation correspond to a field of view of 90
+		pleftx# = (-cosphi*z - sinphi*z) +px
+		plefty# = ( sinphi*z - cosphi*z) +py
+		prightx# = ( cosphi*z - sinphi*z) +px
+		prighty# = (-sinphi*z - cosphi*z) +py
+
+		;segment the line
+		dx# = (prightx - pleftx) / screenwidth
+		dy# = (prighty - plefty) / screenwidth
+
+
+
+		;raster line and draw a vertical line for each segment
+		i= 0:While i < screenwidth
+
+			;sampling And projecting height Data
+			heightpixel = heightdata(Abs(pleftx Mod 1024),Abs(plefty Mod 1024))
+;-------------------------------------------------------------------------------------
+			heightONscreen = ( (heightpixel-height) / z * heightscale + horizon )
+			
+			If heightONscreen > screenheight Then Goto skip;clamp to screen
+				
+			;drawing the landscape
+			top = heightONscreen
+			bottom = PeekShort(oldy,i*2)
+
+			If top >= bottom Then Goto skip;clamp to buffer
+
+			samplingMapColor(pleftx,plefty)
+			Line i,top , i,bottom
+			;Plot i,top
+
+			If top < bottom Then PokeShort(oldy,i*2,top)
+
+			;debug visualization
+			;Plot (pleftx/scalevis), (plefty/scalevis) +offsety
+
+			.skip
+
+			;increment
+			pleftx = pleftx + dx
+			plefty = plefty + dy	
+
+		 i = i +1:Wend 
+
+
+
+	z = z + dz
+	dz = dz + 0.2 
+	Wend
+
+	Color 255,000,000;red 
+	Rect 0,0,screenwidth, screenheight,False 
+	;height 
+	Line 0,height,screenwidth,height 
+	;horizon
+	Color 000,000,255;blue 
+	Line 0,horizon ,screenwidth,horizon 
+
+
+	Color 255,255,255
+	Text offsetx,0, "done"
+	Text offsetx,15, "px: " + px
+	Text offsetx,30, "py: " + py
+	Text offsetx,45, "height: " + height
+	Text offsetx,60, "horizon: " + horizon
+	Text offsetx,75, "scale: " + heightscale 
+	Text offsetx,90, "angle: " + phi
+
+	Flip
+
+End Function
+
+
+Function Draw()
+
+	size = 3
+
+	Cls:HidePointer 
+	;DrawImage texture, 0,0
+	;DrawBlock texture, 0,0
+	;DrawImageRect texture, 0,0, 0,0, 100,100
+	test			= LoadImage("C:\Users\enfant du soley\Documents\blitz3d\images.png")
+
+	If test = 0 Then Stop
+
+	DrawImage test, 0,0: FreeImage test
+
+	x = MouseX()-100
+	y = MouseY()-100
+	c = ReadPixel(x,y)
+
+	SamplingColor(x,y,c)
+	r1 = ColorRed()
+	g1 = ColorGreen()
+	b1 = ColorBlue()
+	Rect -100,-100+00, 10,10
+	Color 255,255,255
+	Text -100+20,-100+00, r1 + " : " + g1 + " : " + b1 + " sampling:" + Hex(c)
+
+
+	GetColor x,y
+	r2 =ColorRed()
+	g2 =ColorGreen()
+	b2 =ColorBlue()
+	Rect -100,-100+20, 10,10
+	Color 255,255,255
+	Text -100+20,-100+20, r2 + " : " + g2 + " : " + b2 + " getcolor"
+
+	Oval x-size/2,y-size/2, size,size,False
+
+
+
+	;ok = SaveImage (texture, "well.bmp"): Print ok: WaitKey()
+
+	;grab = CreateImage(1024,1024): SetBuffer ImageBuffer(grab)
+	;GrabImage texture, 0,0
+	;DrawImage grab , 0,0
+	;DrawBlock grab , 0,0
+	;DrawImageRect grab , 0,0, 0,0, 100,100:SetBuffer BackBuffer()
+	;FreeImage grab
+
+	;test = CopyImage(texture)
+	;DrawImage test, 0,0
+	;DrawBlock test, 0,0
+	;DrawImageRect test, 0,0, 0,0, 100,100
+	;FreeImage test
+
+
+End Function
+
+
+Function SamplingMapColor(x,y)
+	;sampling color from the texture
+			;rm = endianess ( 255-extractR( texdata(Abs(x Mod 1024),Abs(y Mod 1024))  ) )
+			;gm = endianess ( 255-extractG( texdata(Abs(x Mod 1024),Abs(y Mod 1024))  ) )
+			;bm = endianess ( 255-extractB( texdata(Abs(x Mod 1024),Abs(y Mod 1024))  ) )
+			;Color (rm*8),(gm*8),(bm*8)
+
+			;a = extractA( c )
+			c = texdata(Abs(x Mod 1024),Abs(y Mod 1024))
+			r = extractR( c ) 
+			g = extractG( c ) 
+			b = extractB( c )
+			;c = c And $00F8F8F8
+			;R= (c And $FF0000) Shr 16
+			;G= (c And $FF00) Shr 8
+			;B= (c And $FF)
+			
+			Color (r),(g),(b)
+
+End Function
+
+Function SamplingColor(x,y,c)
+	;sampling color from the texture
+			a = extractA( c )
+
+			r = extractR( c ) 
+			g = extractG( c ) 
+			b = extractB( c )
+			;c = c And $00F8F8F8
+			;R= (c And $FF0000) Shr 16
+			;G= (c And $FF00) Shr 8
+			;B= (c And $FF)
+			
+			Color (r),(g),(b)
+End Function
+
+Function gamma(v#)
+	Return 255*( v /255)^(1/2.2)
+End Function
